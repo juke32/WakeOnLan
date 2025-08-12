@@ -124,7 +124,7 @@ globals:
   - id: wake_interval
     type: int
     restore_value: yes
-    initial_value: '80'
+    initial_value: '32'
   - id: last_wake
     type: unsigned long
     restore_value: no
