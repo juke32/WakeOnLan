@@ -364,7 +364,7 @@ switch:
 text:
 
   - platform: template
-    name: "Version"
+    name: "About / Version"
     id: about_info
     mode: text
     initial_value: "2025-08-12_1824"
