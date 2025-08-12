@@ -230,7 +230,7 @@ interval:
 
 button:
   - platform: template
-    name: "Wake MAC 1"
+    name: "MAC 1 Wake"
     id: wake_mac1
     on_press:
       - lambda: |-
@@ -239,7 +239,7 @@ button:
           id(blink_led).execute();
           wol.send_magic_packet(id(mac1));
   - platform: template
-    name: "Wake MAC 2"
+    name: "MAC 2 Wake"
     id: wake_mac2
     on_press:
       - lambda: |-
@@ -248,7 +248,7 @@ button:
           id(blink_led).execute();
           wol.send_magic_packet(id(mac2));
   - platform: template
-    name: "Wake MAC 3"
+    name: "MAC 3 Wake"
     id: wake_mac3
     on_press:
       - lambda: |-
@@ -257,7 +257,7 @@ button:
           id(blink_led).execute();
           wol.send_magic_packet(id(mac3));
   - platform: template
-    name: "Wake MAC 4"
+    name: "MAC 4 Wake"
     id: wake_mac4
     on_press:
       - lambda: |-
@@ -266,7 +266,7 @@ button:
           id(blink_led).execute();
           wol.send_magic_packet(id(mac4));
   - platform: template
-    name: "Wake MAC 5"
+    name: "MAC 5 Wake"
     id: wake_mac5
     on_press:
       - lambda: |-
@@ -275,7 +275,7 @@ button:
           id(blink_led).execute();
           wol.send_magic_packet(id(mac5));
   - platform: template
-    name: "Wake MAC 6"
+    name: "MAC 6 Wake"
     id: wake_mac6
     on_press:
       - lambda: |-
@@ -375,7 +375,7 @@ text:
     name: "Wake Every 1-4608 min."
     id: wake_interval_text
     mode: text
-    initial_value: "80"
+    initial_value: "32"
     restore_value: true
     set_action:
       - lambda: |-
@@ -414,7 +414,7 @@ text:
 
 
   - platform: template
-    name: "MAC 1"
+    name: "MAC 1 Input"
     id: mac1_text
     mode: text
     initial_value: "11:00:0A:BB:28:FC"
@@ -423,7 +423,7 @@ text:
       - lambda: |-
           id(mac1) = x;
   - platform: template
-    name: "MAC 2"
+    name: "MAC 2 Input"
     id: mac2_text
     mode: text
     initial_value: "00:22:00:00:00:00"
@@ -432,7 +432,7 @@ text:
       - lambda: |-
           id(mac2) = x;
   - platform: template
-    name: "MAC 3"
+    name: "MAC 3 Input"
     id: mac3_text
     mode: text
     initial_value: "00:00:33:00:00:00"
@@ -441,7 +441,7 @@ text:
       - lambda: |-
           id(mac3) = x;
   - platform: template
-    name: "MAC 4"
+    name: "MAC 4 Input"
     id: mac4_text
     mode: text
     initial_value: "00:00:00:44:00:00"
@@ -450,7 +450,7 @@ text:
       - lambda: |-
           id(mac4) = x;
   - platform: template
-    name: "MAC 5"
+    name: "MAC 5 Input"
     id: mac5_text
     mode: text
     initial_value: "00:00:00:00:55:00"
@@ -459,7 +459,7 @@ text:
       - lambda: |-
           id(mac5) = x;
   - platform: template
-    name: "MAC 6"
+    name: "MAC 6 Input"
     id: mac6_text
     mode: text
     initial_value: "00:00:00:00:00:66"
