@@ -1,4 +1,4 @@
-# WakeOnLan
+# juke32/WakeOnLan
 ## Once a power outage gets restored an esp32 controller will...
 
 1. start a 3min timer
