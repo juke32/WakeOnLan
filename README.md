@@ -2,8 +2,8 @@
 ## Once a power outage gets restored an esp32 controller will...
 
 1. start a 3min timer
-2. send all set devices a magic packet with their MAC address
-3. continue an incremental timer to keep waking devices in-case of edge cases or accidental power offs
+2. send all enabled devices a magic packet with their MAC address
+3. continue an incremental timer to keep waking devices for edge cases like accidental power offs or updates
 
 ## Features:
 - Home Assistant integration through EspHome
