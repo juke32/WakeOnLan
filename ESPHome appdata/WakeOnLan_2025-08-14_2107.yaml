@@ -1,0 +1,748 @@
+esphome:
+  name: juke32-wakeonlan
+  friendly_name: github.com/juke32/WakeOnLan
+  includes:
+    - components/wake_on_lan_config/wake_on_lan_config.h
+  on_boot:
+    priority: 800.0
+    then:
+      - output.turn_off: led_gpio
+      - lambda: |-
+          // Initialize display state: if default_screen mapped to blank (value 5) treat as OFF at boot
+          if (id(default_screen) == 5) {
+            id(display_on) = false;      // fully off (nothing drawn)
+            id(current_page) = 5;        // blank page index
+          } else {
+            id(display_on) = true;
+            id(current_page) = id(default_screen);
+          }
+          id(last_interaction) = millis();
+      - delay: 3min
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          std::vector<std::string> macs;
+          if (id(mac1_enabled) && id(mac1) != "00:00:00:00:00:00") macs.push_back(id(mac1));
+          if (id(mac2_enabled) && id(mac2) != "00:00:00:00:00:00") macs.push_back(id(mac2));
+          if (id(mac3_enabled) && id(mac3) != "00:00:00:00:00:00") macs.push_back(id(mac3));
+          if (id(mac4_enabled) && id(mac4) != "00:00:00:00:00:00") macs.push_back(id(mac4));
+          if (id(mac5_enabled) && id(mac5) != "00:00:00:00:00:00") macs.push_back(id(mac5));
+          if (id(mac6_enabled) && id(mac6) != "00:00:00:00:00:00") macs.push_back(id(mac6));
+          if (!macs.empty()) {
+            wol_start(macs, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+          }
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: "kAE53RgT5oFHTEsyoKwoK22dvkVu/eBwo24sFb2HdR0="
+  reboot_timeout: 0s
+
+ota:
+  platform: esphome
+  password: "6f27d02c984012ae6cf73e2890ec4372"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: false
+  reboot_timeout: 0s  # disable WiFi auto-reboot on prolonged disconnect
+  ap:
+    ssid: "WakeOnLan-APmode"
+    password: "password"
+
+captive_portal:
+
+web_server:
+  port: 80
+  local: true  # Allow access from both AP and STA mode
+
+i2c:
+  sda: 5
+  scl: 6
+  scan: true
+output:
+  # On ESP32-C3-DevKitM-1 the onboard RGB LED is often on GPIO8.
+  # Change the pin below if your LED is on a different GPIO.
+  - platform: gpio
+    pin:
+      number: 8
+      inverted: true
+      mode: OUTPUT
+    id: led_gpio
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: ESP IP Address
+      id: ip_address
+    ssid:
+      name: ESP SSID
+      id: ssid
+    bssid:
+      name: ESP BSSID
+      id: bssid
+    mac_address:
+      name: ESP MAC
+      id: mac
+  - platform: template
+    name: ESP AP IP
+    id: ap_ip
+    lambda: |-
+      if (id(ip_address).has_state() && id(ip_address).state != "") {
+        return {};
+      } else {
+        return std::string("192.168.4.1");
+      }
+    update_interval: 5s
+
+sensor:
+  - platform: uptime
+    name: "Device Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+
+globals:
+  - id: display_on
+    type: bool
+    restore_value: no
+    initial_value: 'true'  # true = display on, false = display off
+  - id: display_timeout_min
+    type: int
+    restore_value: yes
+    initial_value: '2'   # minutes until auto-off; 0 = never turn off
+  - id: default_screen
+    type: int
+    restore_value: yes
+    initial_value: '0'  # 0=page 1, 5=page 6 (blank)
+  - id: current_page
+    type: int
+    restore_value: no
+    initial_value: '0'
+  - id: last_interaction
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+
+  - id: wake_interval
+    type: int
+    restore_value: yes
+    initial_value: '32'
+  - id: last_wake
+    type: unsigned long
+    restore_value: no
+    initial_value: '0'
+
+  # Repeat count for each WOL magic packet (1-10)
+  - id: wol_repeats
+    type: int
+    restore_value: yes
+    initial_value: '3'
+
+  - id: mac1
+    type: std::string
+    restore_value: yes
+    initial_value: '"11:00:0A:BB:28:FC"'
+  - id: mac2
+    type: std::string
+    restore_value: yes
+    initial_value: '"00:22:00:00:00:00"'
+  - id: mac3
+    type: std::string
+    restore_value: yes
+    initial_value: '"00:00:33:00:00:00"'
+  - id: mac4
+    type: std::string
+    restore_value: yes
+    initial_value: '"00:00:00:44:00:00"'
+  - id: mac5
+    type: std::string
+    restore_value: yes
+    initial_value: '"00:00:00:00:55:00"'
+  - id: mac6
+    type: std::string
+    restore_value: yes
+    initial_value: '"00:00:00:00:00:66"'
+  - id: mac1_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: mac2_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: mac3_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: mac4_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: mac5_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+  - id: mac6_enabled
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+  # Optional notes for each MAC (shown on screen), editable via text entities
+  - id: mac1_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 1"'
+  - id: mac2_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 2"'
+  - id: mac3_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 3"'
+  - id: mac4_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 4"'
+  - id: mac5_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 5"'
+  - id: mac6_note
+    type: std::string
+    restore_value: yes
+    initial_value: '"MAC 6"'
+
+script:
+  - id: wake_all_devices
+    mode: queued
+    then:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          std::vector<std::string> macs;
+          if (id(mac1_enabled) && id(mac1) != "00:00:00:00:00:00") macs.push_back(id(mac1));
+          if (id(mac2_enabled) && id(mac2) != "00:00:00:00:00:00") macs.push_back(id(mac2));
+          if (id(mac3_enabled) && id(mac3) != "00:00:00:00:00:00") macs.push_back(id(mac3));
+          if (id(mac4_enabled) && id(mac4) != "00:00:00:00:00:00") macs.push_back(id(mac4));
+          if (id(mac5_enabled) && id(mac5) != "00:00:00:00:00:00") macs.push_back(id(mac5));
+          if (id(mac6_enabled) && id(mac6) != "00:00:00:00:00:00") macs.push_back(id(mac6));
+          if (!macs.empty()) {
+            wol_start(macs, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+          }
+  - id: blink_led
+    mode: restart
+    then:
+      - output.turn_on: led_gpio
+      - delay: 50ms
+      - output.turn_off: led_gpio
+
+interval:
+  - interval: 20ms
+    then:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_process();
+  - interval: 60s
+    then:
+      - lambda: |-
+          unsigned long now = millis();
+          if (now - id(last_wake) >= id(wake_interval) * 60 * 1000) {
+            // Briefly pause uptime calculation and other processing
+            delay(20);
+            
+            id(last_wake) = now;
+            using namespace esphome::wake_on_lan_config;
+            std::vector<std::string> macs;
+            if (id(mac1_enabled) && id(mac1) != "00:00:00:00:00:00") macs.push_back(id(mac1));
+            if (id(mac2_enabled) && id(mac2) != "00:00:00:00:00:00") macs.push_back(id(mac2));
+            if (id(mac3_enabled) && id(mac3) != "00:00:00:00:00:00") macs.push_back(id(mac3));
+            if (id(mac4_enabled) && id(mac4) != "00:00:00:00:00:00") macs.push_back(id(mac4));
+            if (id(mac5_enabled) && id(mac5) != "00:00:00:00:00:00") macs.push_back(id(mac5));
+            if (id(mac6_enabled) && id(mac6) != "00:00:00:00:00:00") macs.push_back(id(mac6));
+            if (!macs.empty()) {
+              wol_start(macs, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+            }
+          }
+  - interval: 1s
+    then:
+      - lambda: |-
+          // Auto-blank display after configured timeout
+          if (id(display_timeout_min) > 0) {
+            unsigned long now = millis();
+            if (now - id(last_interaction) >= (unsigned long)id(display_timeout_min) * 60UL * 1000UL) {
+              // Turn display fully off; only the button click will wake it
+              id(display_on) = false;
+              id(current_page) = 5;  // blank page index
+            }
+          }
+
+button:
+  - platform: template
+    name: "MAC 1 Wake Now"
+    id: wake_mac1
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac1)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+  - platform: template
+    name: "MAC 2 Wake Now"
+    id: wake_mac2
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac2)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+  - platform: template
+    name: "MAC 3 Wake Now"
+    id: wake_mac3
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac3)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+  - platform: template
+    name: "MAC 4 Wake Now"
+    id: wake_mac4
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac4)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+  - platform: template
+    name: "MAC 5 Wake Now"
+    id: wake_mac5
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac5)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+  - platform: template
+    name: "MAC 6 Wake Now"
+    id: wake_mac6
+    on_press:
+      - lambda: |-
+          using namespace esphome::wake_on_lan_config;
+          wol_start(std::vector<std::string>{id(mac6)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
+
+switch:
+
+  - platform: template
+    name: "MAC 1 Incrimental"
+    id: mac1_enabled_switch
+    lambda: |-
+      return id(mac1_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac1_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac1_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: "MAC 2 Incrimental"
+    id: mac2_enabled_switch
+    lambda: |-
+      return id(mac2_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac2_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac2_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: "MAC 3 Incrimental"
+    id: mac3_enabled_switch
+    lambda: |-
+      return id(mac3_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac3_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac3_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: "MAC 4 Incrimental"
+    id: mac4_enabled_switch
+    lambda: |-
+      return id(mac4_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac4_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac4_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: "MAC 5 Incrimental"
+    id: mac5_enabled_switch
+    lambda: |-
+      return id(mac5_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac5_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac5_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+  - platform: template
+    name: "MAC 6 Incrimental"
+    id: mac6_enabled_switch
+    lambda: |-
+      return id(mac6_enabled);
+    turn_on_action:
+      - lambda: |-
+          id(mac6_enabled) = true;
+    turn_off_action:
+      - lambda: |-
+          id(mac6_enabled) = false;
+    restore_mode: RESTORE_DEFAULT_OFF
+
+
+
+text:
+
+  - platform: template
+    name: "About / Version"
+    id: about_info
+    mode: text
+    initial_value: "2025-08-14_2107"
+    restore_value: false
+    optimistic: true
+
+  - platform: template
+    name: "Incrimental Wake 1-4608 min."
+    id: wake_interval_text
+    mode: text
+    initial_value: "32"
+    restore_value: true
+    set_action:
+      - lambda: |-
+          int val = atoi(x.c_str());
+          if (val > 0 && val <= 4608) {
+            id(wake_interval) = val;
+          }
+
+  - platform: template
+    name: "WOL Repeat Count (1-10)"
+    id: wol_repeats_text
+    mode: text
+    initial_value: "3"
+    restore_value: true
+    set_action:
+      - lambda: |-
+          int val = atoi(x.c_str());
+          if (val >= 1 && val <= 10) {
+            id(wol_repeats) = val;
+          }
+
+  - platform: template
+    name: "Display Timeout Minutes (0=never)"
+    id: display_timeout_text
+    mode: text
+    initial_value: "2"
+    restore_value: true
+    set_action:
+      - lambda: |-
+          int val = atoi(x.c_str());
+          if (val >= 0 && val <= 240) {  // cap to 4 hours
+            id(display_timeout_min) = val;
+          }
+
+  - platform: template
+    name: "Default Screen (0-6, 0=off)"
+    id: default_screen_text
+    mode: text
+    initial_value: "1"
+    restore_value: true
+    set_action:
+      - lambda: |-
+          int val = atoi(x.c_str());
+          if (val == 0) {
+            id(default_screen) = 5;  // 0 maps to blank (page 6)
+          } else if (val >= 1 && val <= 6) {
+            id(default_screen) = val - 1;  // store as 0-based index
+          }
+
+
+  - platform: template
+    name: "MAC 1 Address"
+    id: mac1_text
+    mode: text
+    initial_value: "11:00:0A:BB:28:FC"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac1) = v;
+  - platform: template
+    name: "MAC 2 Address"
+    id: mac2_text
+    mode: text
+    initial_value: "00:22:00:00:00:00"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac2) = v;
+  - platform: template
+    name: "MAC 3 Address"
+    id: mac3_text
+    mode: text
+    initial_value: "00:00:33:00:00:00"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac3) = v;
+  - platform: template
+    name: "MAC 4 Address"
+    id: mac4_text
+    mode: text
+    initial_value: "00:00:00:44:00:00"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac4) = v;
+  - platform: template
+    name: "MAC 5 Address"
+    id: mac5_text
+    mode: text
+    initial_value: "00:00:00:00:55:00"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac5) = v;
+  - platform: template
+    name: "MAC 6 Address"
+    id: mac6_text
+    mode: text
+    initial_value: "00:00:00:00:00:66"
+    restore_value: true
+    max_length: 32  # Increased to avoid length warnings
+    set_action:
+      - lambda: |-
+          // Simple MAC processing - just trim, uppercase and store
+          std::string v = x;
+          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
+          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
+          for (auto &c : v) c = toupper((unsigned char)c);
+          id(mac6) = v;
+
+  # Notes for each MAC (editable in UI)
+  - platform: template
+    name: "MAC 1 A Label"
+    id: mac1_note_text
+    mode: text
+    initial_value: "MAC 1"
+    restore_value: true
+    max_length: 32  # Added to avoid length warnings
+    set_action:
+      - lambda: |-
+          id(mac1_note) = x;
+  - platform: template
+    name: "MAC 2 A Label"
+    id: mac2_note_text
+    mode: text
+    initial_value: "MAC 2"
+    restore_value: true
+    max_length: 32
+    set_action:
+      - lambda: |-
+          id(mac2_note) = x;
+  - platform: template
+    name: "MAC 3 A Label"
+    id: mac3_note_text
+    mode: text
+    initial_value: "MAC 3"
+    restore_value: true
+    max_length: 32
+    set_action:
+      - lambda: |-
+          id(mac3_note) = x;
+  - platform: template
+    name: "MAC 4 A Label"
+    id: mac4_note_text
+    mode: text
+    initial_value: "MAC 4"
+    restore_value: true
+    max_length: 32
+    set_action:
+      - lambda: |-
+          id(mac4_note) = x;
+  - platform: template
+    name: "MAC 5 A Label"
+    id: mac5_note_text
+    mode: text
+    initial_value: "MAC 5"
+    restore_value: true
+    max_length: 32
+    set_action:
+      - lambda: |-
+          id(mac5_note) = x;
+  - platform: template
+    name: "MAC 6 A Label"
+    id: mac6_note_text
+    mode: text
+    initial_value: "MAC 6"
+    restore_value: true
+    max_length: 32
+    set_action:
+      - lambda: |-
+          id(mac6_note) = x;
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: 9
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Boot Button (GPIO9)"
+    filters:
+      - delayed_on: 20ms
+      - delayed_off: 20ms
+    on_click:
+      - min_length: 75ms
+        max_length: 2s
+        then:
+          - lambda: |-
+              // Debounced click: if display off, wake to default page; else cycle pages
+              if (!id(display_on)) {
+                id(display_on) = true;
+                int target = id(default_screen);
+                if (target == 5) target = 0;  // if default is blank, show page 1 on wake
+                id(current_page) = target;
+              } else if (id(current_page) == 5) {
+                int target = id(default_screen);
+                if (target == 5) target = 0;
+                id(current_page) = target;
+              } else {
+                id(current_page) = (id(current_page) + 1) % 6;
+              }
+              id(last_interaction) = millis();
+
+  - platform: template
+    name: "Display On State"
+    lambda: |-
+      return id(display_on);
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 72x40"
+    address: 0x3C
+    lambda: |-
+      // If display is logically off, do not draw anything
+      if (!id(display_on)) return;
+      if (id(current_page) == 5) {
+        // Draw a fully black frame to blank the display
+        it.fill(COLOR_OFF);
+        return;
+      }
+      int page = id(current_page);
+
+      if (page == 0) {
+        // WiFi/AP info
+        if (id(ip_address).has_state() && id(ip_address).state != "") {
+          it.printf(0, 0, id(font1), "WiFi: %s", id(ssid).state.c_str());
+          it.printf(0, 20, id(font1), "IP: %s", id(ip_address).state.c_str());
+        } else {
+          it.printf(0, 0, id(font1), "WakeOnLan-APmode");
+          it.printf(0, 10, id(font1), "Pass: password");
+          it.printf(0, 20, id(font1), "192.168.4.1");
+        }
+        it.printf(0, 30, id(font1), "%s", id(mac).state.c_str());
+
+      } else if (page == 1) {
+        // System info
+        unsigned long uptime = (unsigned long)id(uptime_sensor).state;
+        unsigned long next_wol = id(wake_interval)*60 - ((millis() - id(last_wake))/1000);
+        if ((long)next_wol < 0) next_wol = 0;
+        it.printf(0, 0, id(font1), "Uptime: %lus", uptime);
+        it.printf(0, 10, id(font1), "Next WOL: %lus", next_wol);
+        it.printf(0, 20, id(font1), "Interval: %dmin", id(wake_interval));
+        it.printf(0, 30, id(font1), "Page: %d", id(current_page)+1);
+
+      } else if (page == 2) {
+        // MAC 1 & 2
+        {
+          std::string n1 = id(mac1_note);
+          if (n1.length() > 10) n1 = n1.substr(0, 10);
+          it.printf(0, 0, id(font1), "MAC1:%s %s", id(mac1_enabled) ? "on" : "off", n1.c_str());
+        }
+        it.printf(0, 10, id(font1), "%s", id(mac1).c_str());
+        {
+          std::string n2 = id(mac2_note);
+          if (n2.length() > 10) n2 = n2.substr(0, 10);
+          it.printf(0, 20, id(font1), "MAC2:%s %s", id(mac2_enabled) ? "on" : "off", n2.c_str());
+        }
+        it.printf(0, 30, id(font1), "%s", id(mac2).c_str());
+
+      } else if (page == 3) {
+        // MAC 3 & 4
+        {
+          std::string n3 = id(mac3_note);
+          if (n3.length() > 10) n3 = n3.substr(0, 10);
+          it.printf(0, 0, id(font1), "MAC3:%s %s", id(mac3_enabled) ? "on" : "off", n3.c_str());
+        }
+        it.printf(0, 10, id(font1), "%s", id(mac3).c_str());
+        {
+          std::string n4 = id(mac4_note);
+          if (n4.length() > 10) n4 = n4.substr(0, 10);
+          it.printf(0, 20, id(font1), "MAC4:%s %s", id(mac4_enabled) ? "on" : "off", n4.c_str());
+        }
+        it.printf(0, 30, id(font1), "%s", id(mac4).c_str());
+
+      } else if (page == 4) {
+        // MAC 5 & 6
+        {
+          std::string n5 = id(mac5_note);
+          if (n5.length() > 10) n5 = n5.substr(0, 10);
+          it.printf(0, 0, id(font1), "MAC5:%s %s", id(mac5_enabled) ? "on" : "off", n5.c_str());
+        }
+        it.printf(0, 10, id(font1), "%s", id(mac5).c_str());
+        {
+          std::string n6 = id(mac6_note);
+          if (n6.length() > 10) n6 = n6.substr(0, 10);
+          it.printf(0, 20, id(font1), "MAC6:%s %s", id(mac6_enabled) ? "on" : "off", n6.c_str());
+        }
+        it.printf(0, 30, id(font1), "%s", id(mac6).c_str());
+      }
+
+font:
+  - file: "ttf/DejaVuSans.ttf"
+    id: font1
+    size: 8
+
+time:
+  - platform: sntp
+    id: sntp_time
