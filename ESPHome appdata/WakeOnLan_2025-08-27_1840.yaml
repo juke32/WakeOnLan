@@ -17,6 +17,9 @@ esphome:
             id(current_page) = id(default_screen);
           }
           id(last_interaction) = millis();
+          // Apply stored WOL port value
+          using namespace esphome::wake_on_lan_config;
+          set_wol_port(id(wol_port));
       - delay: 3min
       - lambda: |-
           using namespace esphome::wake_on_lan_config;
@@ -37,6 +40,7 @@ esp32:
     type: arduino
 
 logger:
+  level: INFO
 
 api:
   encryption:
@@ -143,6 +147,11 @@ globals:
     type: int
     restore_value: yes
     initial_value: '3'
+  # WOL UDP destination port (commonly 7 or 9)
+  - id: wol_port
+    type: int
+    restore_value: yes
+    initial_value: '9'
 
   - id: mac1
     type: std::string
@@ -326,10 +335,12 @@ button:
           using namespace esphome::wake_on_lan_config;
           wol_start(std::vector<std::string>{id(mac6)}, id(wol_repeats), [](bool on){ if (on) id(led_gpio).turn_on(); else id(led_gpio).turn_off(); });
 
+
+
 switch:
 
   - platform: template
-    name: "MAC 1 Incrimental"
+    name: "MAC 1 Incremental"
     id: mac1_enabled_switch
     lambda: |-
       return id(mac1_enabled);
@@ -341,7 +352,7 @@ switch:
           id(mac1_enabled) = false;
     restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
-    name: "MAC 2 Incrimental"
+    name: "MAC 2 Incremental"
     id: mac2_enabled_switch
     lambda: |-
       return id(mac2_enabled);
@@ -353,7 +364,7 @@ switch:
           id(mac2_enabled) = false;
     restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
-    name: "MAC 3 Incrimental"
+    name: "MAC 3 Incremental"
     id: mac3_enabled_switch
     lambda: |-
       return id(mac3_enabled);
@@ -365,7 +376,7 @@ switch:
           id(mac3_enabled) = false;
     restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
-    name: "MAC 4 Incrimental"
+    name: "MAC 4 Incremental"
     id: mac4_enabled_switch
     lambda: |-
       return id(mac4_enabled);
@@ -377,7 +388,7 @@ switch:
           id(mac4_enabled) = false;
     restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
-    name: "MAC 5 Incrimental"
+    name: "MAC 5 Incremental"
     id: mac5_enabled_switch
     lambda: |-
       return id(mac5_enabled);
@@ -389,7 +400,7 @@ switch:
           id(mac5_enabled) = false;
     restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
-    name: "MAC 6 Incrimental"
+    name: "MAC 6 Incremental"
     id: mac6_enabled_switch
     lambda: |-
       return id(mac6_enabled);
@@ -409,12 +420,12 @@ text:
     name: "About / Version"
     id: about_info
     mode: text
-    initial_value: "2025-08-14_2107"
+    initial_value: "2025-08-27_1840"
     restore_value: false
     optimistic: true
 
   - platform: template
-    name: "Incrimental Wake 1-4608 min."
+    name: "Incremental Wake 1-4608 min."
     id: wake_interval_text
     mode: text
     initial_value: "32"
@@ -438,7 +449,19 @@ text:
           if (val >= 1 && val <= 10) {
             id(wol_repeats) = val;
           }
-
+  - platform: template
+    name: "WOL Port"
+    id: wol_port_text
+    mode: text
+    initial_value: "9"
+    restore_value: true
+    set_action:
+      - lambda: |-
+          int val = atoi(x.c_str());
+          if (val >= 1 && val <= 65535) {
+            id(wol_port) = val;
+            using namespace esphome::wake_on_lan_config; set_wol_port(val);
+          }
   - platform: template
     name: "Display Timeout Minutes (0=never)"
     id: display_timeout_text
@@ -477,12 +500,11 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac1) = v;
+          using namespace esphome::wake_on_lan_config;
+          std::string norm;
+          if (validate_mac(x, norm)) {
+            id(mac1) = norm;
+          }
   - platform: template
     name: "MAC 2 Address"
     id: mac2_text
@@ -492,12 +514,7 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac2) = v;
+          using namespace esphome::wake_on_lan_config; std::string norm; if (validate_mac(x, norm)) { id(mac2) = norm; }
   - platform: template
     name: "MAC 3 Address"
     id: mac3_text
@@ -507,12 +524,7 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac3) = v;
+          using namespace esphome::wake_on_lan_config; std::string norm; if (validate_mac(x, norm)) { id(mac3) = norm; }
   - platform: template
     name: "MAC 4 Address"
     id: mac4_text
@@ -522,12 +534,7 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac4) = v;
+          using namespace esphome::wake_on_lan_config; std::string norm; if (validate_mac(x, norm)) { id(mac4) = norm; }
   - platform: template
     name: "MAC 5 Address"
     id: mac5_text
@@ -537,12 +544,7 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac5) = v;
+          using namespace esphome::wake_on_lan_config; std::string norm; if (validate_mac(x, norm)) { id(mac5) = norm; }
   - platform: template
     name: "MAC 6 Address"
     id: mac6_text
@@ -552,12 +554,7 @@ text:
     max_length: 32  # Increased to avoid length warnings
     set_action:
       - lambda: |-
-          // Simple MAC processing - just trim, uppercase and store
-          std::string v = x;
-          while (!v.empty() && isspace((unsigned char)v.front())) v.erase(v.begin());
-          while (!v.empty() && isspace((unsigned char)v.back())) v.pop_back();
-          for (auto &c : v) c = toupper((unsigned char)c);
-          id(mac6) = v;
+          using namespace esphome::wake_on_lan_config; std::string norm; if (validate_mac(x, norm)) { id(mac6) = norm; }
 
   # Notes for each MAC (editable in UI)
   - platform: template
