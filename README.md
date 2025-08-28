@@ -27,3 +27,9 @@ ALL SETTINGS WILL GET RESET WHEN FLASHING FIRMWARE
 
 ----
 ![ScreenshotPhone](https://github.com/user-attachments/assets/91d23589-ce1a-47f1-a090-323f21ad8113)
+
+----
+bios tips:
+make sure network startup / wake on lan is enabled
+make sure the network boot device is not PXE boot unless desired
+may have to disable a docking mode for a laptop to allow it to work
