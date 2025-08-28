@@ -30,6 +30,6 @@ ALL SETTINGS WILL GET RESET WHEN FLASHING FIRMWARE
 
 ----
 bios tips:
-make sure network startup / wake on lan is enabled
-make sure the network boot device is not PXE boot unless desired
-may have to disable a docking mode for a laptop to allow it to work
+- make sure network startup / wake on lan is enabled
+- make sure the network boot device is not PXE boot unless desired
+- may have to disable a docking mode for a laptop to allow it to work
